@@ -1,0 +1,6 @@
+.nextflow.log*
+pipeline_info/*
+202*
+.nextflow/*
+work*
+delly*
