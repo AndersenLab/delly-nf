@@ -40,8 +40,8 @@ if (params.species == "c_elegans" | params.species == "c_briggsae" | params.spec
         params.ws_build="June2021"
     }
     // Define the genome
-    params.genome = "${params.dataDir}/${params.species}/genomes/${params.project}/${params.ws_build}/${params.species}.${params.project}.${params.ws_build}.genome.fa.gz"
-        if (params.reference =~ /.*fa.gz$/){
+    params.genome = "${params.dataDir}/${params.species}/genomes/${params.project}/${params.ws_build}/${params.species}.${params.project}.${params.ws_build}.genome.fa"
+        if (params.genome =~ /.*fa\.gz$/){
             params.genome_index = "${params.genome}.gzi"
         } else {
             params.genome_index = "${params.genome}.fai"
@@ -55,7 +55,7 @@ if (params.species == "c_elegans" | params.species == "c_briggsae" | params.spec
 } else {
     if (params.reference == null | params.reference_index == null | params.bam_dir == null){
         params.genome = "${params.reference}"
-        if (params.reference =~ /.*fa.gz$/){
+        if (params.genome =~ /.*fa\.gz$/){
             params.genome_index = "${params.genome}.gzi"
         } else {
             params.genome_index = "${params.genome}.fai"
@@ -139,6 +139,8 @@ workflow {
         .map { ["${it}", "${params.refstrain}", file("${params.bam_folder}/${it}.bam"), file("${params.bam_folder}/${it}.bam.bai"), file("${params.bam_folder}/${params.refstrain}.bam"), file("${params.bam_folder}/${params.refstrain}.bam.bai")] }
         .combine(Channel.fromPath(params.genome))
         .combine(Channel.fromPath(params.genome_index)) | delly_call_indel
+
+    delly_call_indel.out | convert_to_vcf
 }
 
 process get_isotypes {
@@ -166,23 +168,40 @@ process get_isotypes {
 process delly_call_indel {
 
     label 'md'
-
-    publishDir "${params.outdir}/", mode: 'copy'
+    label "delly"
 
     input:
         tuple val(sample), val(control), file(bam), file(bam_index), file(ref_bam), file(ref_bam_index), file(genome), file(genome_index)
 
     output:
-        file("${out_prefix}.bcf")
+        tuple val(sample), file("${sample}.bcf")
 
     """
     echo -e "${control}\tcontrol\n${sample}\ttumor" > samples.tsv
-    delly call -q 20 -g ${genome} -o sample.bcf${bam} ${ref_bam}
-    bcftools index sample.bcf
+    delly call -q 20 -g ${genome} -o sample.bcf ${bam} ${ref_bam}
     delly filter -f somatic -o ${sample}.bcf -a 0.75 -p -m 50 -n 1000 -s samples.tsv sample.bcf
     """
-
 }
+
+process convert_to_vcf {
+
+    label 'xs'
+    label 'annotation'
+
+    publishDir "${params.outdir}/", mode: 'copy'
+
+    input:
+        tuple val(sample), file(bcf)
+
+    output:
+        path("${sample}.vcf.gz*")
+
+    """
+    bcftools view -v indels -Oz5 -o ${sample}.vcf.gz ${bcf}
+    tabix -p vcf ${sample}.vcf.gz
+    """
+}
+
 
 workflow.onComplete {
 
