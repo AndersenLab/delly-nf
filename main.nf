@@ -132,7 +132,8 @@ if (params.help) {
 workflow { 
 
     // pull isotypes from sample sheet
-    bams = Channel.fromPath("${params.sample_sheet}") | get_isotypes
+    bams = Channel.fromPath("${params.sample_sheet}")
+        .combine(Channel.of("${params.refstrain}")) | get_isotypes
 
     bams.splitText()
         .map { it.replace("\n", "") }
@@ -150,7 +151,7 @@ process get_isotypes {
     container null
 
     input:
-        file sample_sheet
+        tuple file(sample_sheet), val(refstrain)
 
     output:
         stdout
@@ -159,7 +160,7 @@ process get_isotypes {
     HEADER=(`head -n 1 ${sample_sheet} | sed "s/\t/ /g"`)
     for I in \$(seq 0 1 \$((\${#HEADER[*]} - 1))); do
         if [[ \${HEADER[\${I}]} =~ ^isotype\$ ]]; then
-            tail -n +2 ${sample_sheet} | cut -f \$((\${I} + 1)) | sort -k1,1 | uniq
+            tail -n +2 ${sample_sheet} | cut -f \$((\${I} + 1)) | sort -k1,1 | uniq | grep -v ${refstrain}
         fi
     done
     """
