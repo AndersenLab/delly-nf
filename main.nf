@@ -71,6 +71,16 @@ if (params.species == "c_elegans" | params.species == "c_briggsae" | params.spec
     }
 }
 
+if (params.masking == null) {
+    if (params.species == "c_elegans") {
+        params.mask_file = "${workflow.projectDir}/test_data/c_elegans_mask.bed"
+    } else {
+        params.mask_file = null
+    }
+} else {
+    params.mask_file = null
+}
+
 if (params.output != null) {
     params.outdir = "${params.output}"
 } else {
@@ -105,6 +115,7 @@ nextflow main.nf -profile rockfish --sample_sheet=isotype_groups.tsv --species=c
     ==========           ===========                                              ========================
     --debug              Set to 'true' to test                                    ${params.debug}
     --sample_sheet       TSV with column isotype (needs header)                   ${params.sample_sheet}
+    --masking            BED file containing regions to skip during indel calling ${params.masking}
     --output             Output folder name (optional)                            ${params.outdir}
     
     --species            Species: 'c_elegans', 'c_tropicalis' or 'c_briggsae'     ${params.species}
@@ -139,7 +150,8 @@ workflow {
         .map { it.replace("\n", "") }
         .map { ["${it}", "${params.refstrain}", file("${params.bam_folder}/${it}.bam"), file("${params.bam_folder}/${it}.bam.bai"), file("${params.bam_folder}/${params.refstrain}.bam"), file("${params.bam_folder}/${params.refstrain}.bam.bai")] }
         .combine(Channel.fromPath(params.genome))
-        .combine(Channel.fromPath(params.genome_index)) | delly_call_indel
+        .combine(Channel.fromPath(params.genome_index))
+        .combine(Channel.fromPath(params.mask_file)) | delly_call_indel
 
     delly_call_indel.out | convert_to_vcf
 }
@@ -172,14 +184,15 @@ process delly_call_indel {
     label "delly"
 
     input:
-        tuple val(sample), val(control), file(bam), file(bam_index), file(ref_bam), file(ref_bam_index), file(genome), file(genome_index)
+        tuple val(sample), val(control), file(bam), file(bam_index), file(ref_bam), file(ref_bam_index), file(genome), file(genome_index), file(mask)
 
     output:
         tuple val(sample), file("${sample}.bcf")
 
     """
+    if [[ -e ${mask} ]]; then MASK="-x ${mask}"; else MASK=""; fi
     echo -e "${control}\tcontrol\n${sample}\ttumor" > samples.tsv
-    delly call -q 20 -g ${genome} -o sample.bcf ${bam} ${ref_bam}
+    delly call -q 20 -g ${genome} -o sample.bcf \$MASK ${bam} ${ref_bam}
     delly filter -f somatic -o ${sample}.bcf -a 0.75 -p -m 50 -n 1000 -s samples.tsv sample.bcf
     """
 }
