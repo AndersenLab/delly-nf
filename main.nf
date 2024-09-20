@@ -170,8 +170,9 @@ process delly_call_indel {
     """
     echo -e "${control}\tcontrol\n${sample}\ttumor" > samples.tsv
     delly call -q 20 -g ${genome} ${bam} ${ref_bam} > sample.vcf
-    bcftools index sample.vcf
-    delly filter -f somatic -o ${sample}.bcf -a 0.75 -p -m 50 -n 1000 -s samples.tsv sample.vcf
+    bcftools sort sample.vcf -Oz -o sample.vcf.gz
+    bcftools index -t sample.vcf.gz
+    delly filter -f somatic -o ${sample}.bcf -a 0.75 -p -m 50 -n 1000 -s samples.tsv sample.vcf.gz
     """
 
 }
