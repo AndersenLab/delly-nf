@@ -31,6 +31,7 @@ if (params.species == "c_elegans" | params.species == "c_briggsae" | params.spec
     if(params.species == "c_elegans") {
         params.project="PRJNA13758"
         params.ws_build="WS283"
+        params.refstrain="N2"
     } else if(params.species == "c_briggsae") {
         params.project="QX1410_nanopore"
         params.ws_build="Feb2020"
@@ -126,7 +127,8 @@ workflow {
     bams = Channel.fromPath("${params.sample_sheet}") | get_isotypes
 
     bams.splitText()
-        .map { ["${params.bam_folder}/${it}.bam", "${params.bam_folder}/${it}.bam.bai"] }
+        .map { it.replace("\n", "") }
+        .map { ["${it}", "${params.refstrain}", file("${params.bam_folder}/${it}.bam"), file("${params.bam_folder}/${it}.bam.bai"), file("${params.bam_folder}/${params.refstrain}.bam"), file("${params.bam_folder}/${params.refstrain}.bam.bai")] }
         .combine(Channel.fromPath(params.genome))
         .combine(Channel.fromPath(params.genome_index)) | delly_call_indel
 }
@@ -160,16 +162,16 @@ process delly_call_indel {
     publishDir "${params.outdir}/", mode: 'copy'
 
     input:
-        tuple file(bam), file(bam_index), file(genome), file(genome_index), val(out_prefix)
+        tuple val(sample), val(control), file(bam), file(bam_index), file(ref_bam), file(ref_bam_index), file(genome), file(genome_index)
 
     output:
-        file("${out_prefix}.vcf")
+        file("${out_prefix}.bcf")
 
     """
-    delly call -t INS -g ${genome} ${bam} > INS.vcf
-    delly call -t DEL -g ${genome} ${bam} > DEL.vcf
-    delly merge -o INDEL.vcf INS.vcf DEL.vcf
-    delly filter -f somatic -o ${out_prefix}.vcf -a 0.25 INDEL.vcf
+    echo -e "${control}\tcontrol\n${sample}\ttumor" > samples.tsv
+    delly call -q 20 -g ${genome} ${bam} ${ref_bam} > sample.vcf
+    bcftools index sample.vcf
+    delly filter -f somatic -o ${sample}.bcf -a 0.75 -p -m 50 -n 1000 -s samples.tsv sample.vcf
     """
 
 }
