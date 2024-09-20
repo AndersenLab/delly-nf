@@ -48,7 +48,7 @@ if (params.species == "c_elegans" | params.species == "c_briggsae" | params.spec
         }
     if (params.bam_dir == null) {
         // Define bam folder
-        params.bam_folder = "${params.dataDir}/data/${params.species}/WI/alignments"
+        params.bam_folder = "${params.dataDir}/${params.species}/WI/alignments"
     } else {
         params.bam_folder = "${params.bam_dir}"
     }
