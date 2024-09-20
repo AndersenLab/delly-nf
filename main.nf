@@ -41,7 +41,11 @@ if (params.species == "c_elegans" | params.species == "c_briggsae" | params.spec
     }
     // Define the genome
     params.genome = "${params.dataDir}/${params.species}/genomes/${params.project}/${params.ws_build}/${params.species}.${params.project}.${params.ws_build}.genome.fa.gz"
-    params.genome_index = "${params.genome}.fai"
+        if (params.reference =~ /.*fa.gz$/){
+            params.genome_index = "${params.genome}.gzi"
+        } else {
+            params.genome_index = "${params.genome}.fai"
+        }
     if (params.bam_dir == null) {
         // Define bam folder
         params.bam_folder = "${params.dataDir}/data/${params.species}/WI/alignments"
@@ -51,7 +55,11 @@ if (params.species == "c_elegans" | params.species == "c_briggsae" | params.spec
 } else {
     if (params.reference == null | params.reference_index == null | params.bam_dir == null){
         params.genome = "${params.reference}"
-        params.genome_index = "${params.genome}.fai"
+        if (params.reference =~ /.*fa.gz$/){
+            params.genome_index = "${params.genome}.gzi"
+        } else {
+            params.genome_index = "${params.genome}.fai"
+        }
         params.bam_folder = "${params.bam_dir}"
     } else {
         println """
@@ -169,10 +177,9 @@ process delly_call_indel {
 
     """
     echo -e "${control}\tcontrol\n${sample}\ttumor" > samples.tsv
-    delly call -q 20 -g ${genome} ${bam} ${ref_bam} > sample.vcf
-    bcftools sort sample.vcf -Oz -o sample.vcf.gz
-    bcftools index -t sample.vcf.gz
-    delly filter -f somatic -o ${sample}.bcf -a 0.75 -p -m 50 -n 1000 -s samples.tsv sample.vcf.gz
+    delly call -q 20 -g ${genome} -o sample.bcf${bam} ${ref_bam}
+    bcftools index sample.bcf
+    delly filter -f somatic -o ${sample}.bcf -a 0.75 -p -m 50 -n 1000 -s samples.tsv sample.bcf
     """
 
 }
