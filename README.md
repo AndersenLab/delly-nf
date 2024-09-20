@@ -28,6 +28,7 @@ nextflow main.nf -profile rockfish --sample_sheet=isotype_groups.tsv --species=c
     ==========           ===========                                              ========================
     --debug              Set to 'true' to test                                    (optional)
     --sample_sheet       TSV with column isotype (needs header)                   (required)
+    --masking            BED file containing regions to skip during indel calling (optional)
     --output             Output folder name (optional)                            (optional)
     
     --species            Species: 'c_elegans', 'c_tropicalis' or 'c_briggsae'     (required/optional)
@@ -116,6 +117,10 @@ Path to the **folder** containing species strain bams.
 ## --reference (required if --species not specified, otherwise optional)
 
 Path to the reference strain fasta file.
+
+## --masking (optional)
+
+Path to bed file containing regions to be skipped during INDEL calling. For C. elegans this defaults to HVR calls in test_data/c_elegans_mask.bed.
 
 ## --output (optional)
 

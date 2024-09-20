@@ -235,6 +235,7 @@ workflow.onComplete {
     Species: ${params.species}
     bam_folder: ${params.bam_folder}
     sample_sheet: ${params.sample_sheet}
+    mask: ${params.mask_file}
     output: ${params.outdir}
     """
 
