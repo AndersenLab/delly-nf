@@ -29,6 +29,8 @@ nextflow main.nf -profile rockfish --sample_sheet=isotype_groups.tsv --species=c
     --debug              Set to 'true' to test                                    (optional)
     --sample_sheet       TSV with column isotype (needs header)                   (required)
     --masking            BED file containing regions to skip during indel calling (optional)
+    --minsize            The minimum size in bp to report for INDELs              (optional, default: 50bp)
+    --maxsize            The maximum size in bp to report for INDELs              (optional, default: 1000bp)
     --output             Output folder name (optional)                            (optional)
     
     --species            Species: 'c_elegans', 'c_tropicalis' or 'c_briggsae'     (required/optional)
@@ -122,6 +124,14 @@ Path to the reference strain fasta file.
 
 Path to bed file containing regions to be skipped during INDEL calling. For C. elegans this defaults to HVR calls in test_data/c_elegans_mask.bed.
 
+## --minsize (optional)
+
+The minimum size cutoff for reporting an insertion or deletion (default: 50bp)
+
+## --maxsize (optional)
+
+The maximum size cutoff for reporting an insertion or deletion (default: 1000bp)
+
 ## --output (optional)
 
 __default__ - `delly-YYYYMMDD`
@@ -132,10 +142,14 @@ A directory in which to output results. If you have set `--debug`, the default o
 
 ```
 └── ANNOTATE_VCF
-    ├── AB1.vcf.gz
-    ├── AB1.vcf.gz.tbi
-    ├── MY23.vcf.gz
-    └── MY23.vcf.gz.tbi
+    ├── AB1_indels_filtered.vcf.gz
+    ├── AB1_indels_filtered.vcf.gz.tbi
+    ├── AB1_indels_unfiltered.vcf.gz
+    ├── AB1_indels_unfiltered.vcf.gz.tbi
+    ├── MY23_indels_filtered.vcf.gz
+    └── MY23_indels_filtered.vcf.gz.tbi
+    ├── MY23_indels_unfiltered.vcf.gz
+    └── MY23_indels_unfiltered.vcf.gz.tbi
 
 ```
 

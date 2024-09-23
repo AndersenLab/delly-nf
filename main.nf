@@ -116,6 +116,8 @@ nextflow main.nf -profile rockfish --sample_sheet=isotype_groups.tsv --species=c
     --debug              Set to 'true' to test                                    ${params.debug}
     --sample_sheet       TSV with column isotype (needs header)                   ${params.sample_sheet}
     --masking            BED file containing regions to skip during indel calling ${params.masking}
+    --minsize            The minimum size in bp to report for INDELs              ${params.minsize}
+    --maxsize            The maximum size in bp to report for INDELs              ${params.maxsize}
     --output             Output folder name (optional)                            ${params.outdir}
     
     --species            Species: 'c_elegans', 'c_tropicalis' or 'c_briggsae'     ${params.species}
@@ -146,14 +148,19 @@ workflow {
     bams = Channel.fromPath("${params.sample_sheet}")
         .combine(Channel.of("${params.refstrain}")) | get_isotypes
 
-    bams.splitText()
+    delly_input = bams.splitText()
         .map { it.replace("\n", "") }
         .map { ["${it}", "${params.refstrain}", file("${params.bam_folder}/${it}.bam"), file("${params.bam_folder}/${it}.bam.bai"), file("${params.bam_folder}/${params.refstrain}.bam"), file("${params.bam_folder}/${params.refstrain}.bam.bai")] }
         .combine(Channel.fromPath(params.genome))
         .combine(Channel.fromPath(params.genome_index))
-        .combine(Channel.fromPath(params.mask_file)) | delly_call_indel
+        .combine(Channel.fromPath(params.mask_file))
+        
+    delly_call_indel( delly_input )
 
-    delly_call_indel.out | convert_to_vcf
+    delly_input
+        .join(delly_call_indel.out) | delly_filter_indel
+    
+    delly_filter_indel.out | convert_to_vcf
 }
 
 process get_isotypes {
@@ -187,13 +194,29 @@ process delly_call_indel {
         tuple val(sample), val(control), file(bam), file(bam_index), file(ref_bam), file(ref_bam_index), file(genome), file(genome_index), file(mask)
 
     output:
-        tuple val(sample), file("${sample}.bcf")
+        tuple val(sample), file("${sample}_indels_unfiltered.bcf"), file("${sample}_indels_unfiltered.bcf.csi")
 
     """
     if [[ -e ${mask} ]]; then MASK="-x ${mask}"; else MASK=""; fi
+    delly call -q 20 -g ${genome} -o ${sample}_indels_unfiltered.bcf \$MASK ${bam} ${ref_bam}
+    """
+}
+
+
+process delly_filter_indel {
+
+    label 'sm'
+    label "delly"
+
+    input:
+        tuple val(sample), val(control), file(bam), file(bam_index), file(ref_bam), file(ref_bam_index), file(genome), file(genome_index), file(mask), file(indels_bcf), file(indels_bcf_index)
+
+    output:
+        tuple val(sample), file("${indels_bcf}"), file("${indels_bcf_index}"), file("${sample}_indels_filtered.bcf"), file("${sample}_indels_filtered.bcf.csi")
+
+    """
     echo -e "${control}\tcontrol\n${sample}\ttumor" > samples.tsv
-    delly call -q 20 -g ${genome} -o sample.bcf \$MASK ${bam} ${ref_bam}
-    delly filter -f somatic -o ${sample}.bcf -a 0.75 -p -m 50 -n 1000 -s samples.tsv sample.bcf
+    delly filter -f somatic -o ${sample}_indels_filtered.bcf -a 0.75 -p -m ${params.minsize} -n ${params.maxsize} -s samples.tsv ${indels_bcf}
     """
 }
 
@@ -205,14 +228,16 @@ process convert_to_vcf {
     publishDir "${params.outdir}/", mode: 'copy'
 
     input:
-        tuple val(sample), file(bcf)
+        tuple val(sample), file(unfiltered_bcf), file(unfiltered_bcf_index), file(filtered_bcf), file(filtered_bcf_index)
 
     output:
-        path("${sample}.vcf.gz*")
+        path("${sample}_*filtered_indels.vcf.gz*")
 
     """
-    bcftools view -v indels -Oz5 -o ${sample}.vcf.gz ${bcf}
-    tabix -p vcf ${sample}.vcf.gz
+    bcftools view -v indels -Oz5 -o ${sample}_unfiltered_indels.vcf.gz ${unfiltered_bcf}
+    tabix -p vcf ${sample}_unfiltered_indels.vcf.gz
+    bcftools view -v indels -Oz5 -o ${sample}_filtered_indels.vcf.gz ${filtered_bcf}
+    tabix -p vcf ${sample}_filtered_indels.vcf.gz
     """
 }
 
