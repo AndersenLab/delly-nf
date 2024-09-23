@@ -35,9 +35,11 @@ if (params.species == "c_elegans" | params.species == "c_briggsae" | params.spec
     } else if(params.species == "c_briggsae") {
         params.project="QX1410_nanopore"
         params.ws_build="Feb2020"
+        params.refstrain="QC1410"
     } else if(params.species == "c_tropicalis") {
         params.project="NIC58_nanopore"
         params.ws_build="June2021"
+        params.refstrain="NIC58"
     }
     // Define the genome
     params.genome = "${params.dataDir}/${params.species}/genomes/${params.project}/${params.ws_build}/${params.species}.${params.project}.${params.ws_build}.genome.fa"
