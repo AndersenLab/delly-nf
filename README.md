@@ -1,5 +1,3 @@
-![Build Docker (env/Dockerfile)](https://github.com/AndersenLab/delly-nf/workflows/Build%20Docker%20(env/Dockerfile)/badge.svg)
-
 
 # delly-nf
 
