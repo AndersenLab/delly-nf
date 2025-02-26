@@ -20,22 +20,23 @@ This pipeline performs INDEL calling on isotype strains versus the reference str
                                                                                                                                                                                                                 
 nextflow main.nf --help
 
-nextflow main.nf -profile rockfish --debug
+nextflow main.nf --debug
 
-nextflow main.nf -profile rockfish --sample_sheet=isotype_groups.tsv --species=c_elegans 
+nextflow main.nf --sample_sheet=isotype_groups.tsv --species=c_elegans 
+
+nextflow main.nf --sample_sheet=isotype_groups.tsv --bam_dir=/path/to/bams --reference=/path/to/reference.fa --ref_strain=reference_strain 
 
     parameters           description                                              Set/Default
     ==========           ===========                                              ========================
     --debug              Set to 'true' to test                                    (optional)
-    --sample_sheet       TSV with column isotype (needs header)                   (required)
-    --masking            BED file containing regions to skip during indel calling (optional)
-    --minsize            The minimum size in bp to report for INDELs              (optional, default: 50bp)
-    --maxsize            The maximum size in bp to report for INDELs              (optional, default: 1000bp)
-    --output             Output folder name (optional)                            (optional)
+    --sample_sheet       TSV with isotype_ref_strain column (needs header)        (required)
+    --minsize            The minimum size in bp to report for INDELs              (optional)
+    --maxsize            The maximum size in bp to report for INDELs              (optional)
     
     --species            Species: 'c_elegans', 'c_tropicalis' or 'c_briggsae'     (required/optional)
-    or
+    and / or
     --bam_dir            Path to folder containing bams                           (optional/required)
+    --ref_strain         Name of strain to use a reference (matches genome ref)   (optional/required)
     --reference          Path to reference genome fasta                           (optional/required)
  
 
@@ -45,7 +46,7 @@ nextflow main.nf -profile rockfish --sample_sheet=isotype_groups.tsv --species=c
 
 ## Software Requirements
 
-* The latest update requires Nextflow version 23+. On Rockfish, you can access this version by loading the `nf23_env` conda environment prior to running the pipeline command:
+* The latest update requires Nextflow version 24+. On Rockfish, you can access this version by loading the `nf24_env` conda environment prior to running the pipeline command:
 
 ```
 module load python/anaconda
@@ -75,7 +76,7 @@ nextflow run -latest andersenlab/delly-nf --sample_sheet <path_to_sample_sheet> 
 or
 
 ```
-nextflow run -latest andersenlab/delly-nf --sample_sheet <path_to_sample_sheet> --bam_dir <path_to_bam_folder> --reference <path_to_reference>
+nextflow run -latest andersenlab/delly-nf --sample_sheet <path_to_sample_sheet> --bam_dir <path_to_bam_folder> --reference <path_to_reference> --ref_strain <reference_strain>
 ```
 
 
@@ -87,7 +88,6 @@ There are three configuration profiles for this pipeline.
 
 * `rockfish` - Used for running on Rockfish (default).
 * `quest`    - Used for running on Quest.
-* `local`    - Used for local development.
 
 >[!Note]
 >If you forget to add a `-profile`, the `rockfish` profile will be chosen as default
@@ -106,9 +106,9 @@ Using `--debug` will automatically set the sample sheet to `test_data/sample_she
 
 ## --sample_sheet
 
-A sample sheet produced by the concordance pipeline with a column specifying isotype reference strains with the column header "isotype".
+A sample sheet produced by the concordance pipeline with a column specifying isotype reference strains with the column header "isotype_ref_strain".
 
-## --species (required if --bam_dir and --reference not specified, otherwise optional)
+## --species (required if --bam_dir, --reference, or --ref_strain not specified, otherwise optional)
 
 Options: c_elegans, c_briggsae, or c_tropicalis
 
@@ -120,9 +120,9 @@ Path to the **folder** containing species strain bams.
 
 Path to the reference strain fasta file.
 
-## --masking (optional)
+## --ref_strain (required if --species not specified, otherwise optional)
 
-Path to bed file containing regions to be skipped during INDEL calling. For C. elegans this defaults to HVR calls in test_data/c_elegans_mask.bed.
+The name of the reference strain to call indels against
 
 ## --minsize (optional)
 
@@ -132,36 +132,31 @@ The minimum size cutoff for reporting an insertion or deletion (default: 50bp)
 
 The maximum size cutoff for reporting an insertion or deletion (default: 1000bp)
 
-## --output (optional)
+## -output-dir (optional)
 
-__default__ - `delly-YYYYMMDD`
+__default__ - `results`
 
-A directory in which to output results. If you have set `--debug`, the default output directory will be `delly-YYYYMMDD-debug`.
+A directory in which to output results
 
 # Output
 
 ```
-└── ANNOTATE_VCF
-    ├── AB1_indels_filtered.vcf.gz
-    ├── AB1_indels_filtered.vcf.gz.tbi
-    ├── AB1_indels_unfiltered.vcf.gz
-    ├── AB1_indels_unfiltered.vcf.gz.tbi
-    ├── MY23_indels_filtered.vcf.gz
-    └── MY23_indels_filtered.vcf.gz.tbi
-    ├── MY23_indels_unfiltered.vcf.gz
-    └── MY23_indels_unfiltered.vcf.gz.tbi
-
+└── results
+    ├── workflow_software_versions.txt
+    └── indels
+        ├── AB1_indels.vcf.gz
+        ├── AB1_indels.vcf.gz.tbi
+        ├── AB4_indels.vcf.gz
+        ├── AB4_indels.vcf.gz.tbi
+        ├── MY23_indels.vcf.gz
+        ├── MY23_indels.vcf.gz.tbi
+        ...
 ```
 
 # Relevant Docker Images
 
-* `andersenlab/delly` ([link](https://hub.docker.com/r/andersenlab/delly)): Docker image is created within this pipeline using GitHub actions. Whenever a change is made to `env/Dockerfile` or `.github/workflows/build_docker.yml` GitHub actions will create a new docker image and push if successful
-* `andersenlab/annotation` ([link](https://hub.docker.com/r/andersenlab/annotation)): Docker image is created within this pipeline using GitHub actions. Whenever a change is made to `env/annotation.Dockerfile` or `.github/workflows/build_docker.yml` GitHub actions will create a new docker image and push if successful
+* `dellytools/delly` ([link](https://hub.docker.com/r/dellytools/delly))
+* `quay.io/biocontainers/bcftools` ([link](https://quay.io/biocontainers/bcftools))
 
 
-Make sure that you add the following code to your `~/.bash_profile`. This line makes sure that any singularity images you download will go to a shared location on `/vast/eande106` for other users to take advantage of (without them also having to download the same image).
-
-```
-# add singularity cache
-export SINGULARITY_CACHEDIR='/vast/eande106/singularity/'
-```
+*Note: If running on Rockfish, make sure to properly set up Nextflow prior to running workflow ([Nextflow configuration](http://andersenlab.org/dry-guide/latest/rockfish/rf-nextflow/#configuring_nextflow)).*
